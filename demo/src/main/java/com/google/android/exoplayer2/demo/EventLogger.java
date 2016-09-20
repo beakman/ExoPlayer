@@ -48,6 +48,8 @@ import java.text.NumberFormat;
 import java.util.List;
 import java.util.Locale;
 
+import omlBasePackage.OMLBase;
+
 /**
  * Logs player events using {@link Log}.
  */

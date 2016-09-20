@@ -49,4 +49,5 @@ dependencies {
     demo_extCompile project(path: ':extension-flac')
     demo_extCompile project(path: ':extension-opus')
     demo_extCompile project(path: ':extension-vp9')
+    compile project(':oml4j')
 }
