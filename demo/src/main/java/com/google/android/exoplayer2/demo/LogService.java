@@ -1,12 +1,23 @@
 package com.google.android.exoplayer2.demo;
 
+import java.sql.Array;
+import java.sql.DatabaseMetaData;
 import java.text.SimpleDateFormat;
 import java.util.ArrayList;
+import java.lang.Thread;
 
+/* OML libraries */
 import omlBasePackage.OMLBase;
 import omlBasePackage.OMLMPFieldDef;
 import omlBasePackage.OMLTypes;
 import omlBasePackage.OmlMP;
+
+/* PostgreSQL libraries */
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 
 import android.app.Activity;
 import android.app.Service;
@@ -34,17 +45,21 @@ public class LogService extends Service {
     IBinder mBinder = new LocalBinder();
     private String audio_format;
 
-    public static void TestMsg(String test) {
-        Log.d("[LogService]", test);
-    }
-
+    //
     public static void logVideoSizeChange(int w, int h) {
         Log.d("[LogService]", "logVideoSizeChange");
         timestamp = formatter.format(System.currentTimeMillis());
-        String[] data = {String.valueOf(timestamp), String.valueOf(w), String.valueOf(h)};
+        final String[] data = {String.valueOf(timestamp), String.valueOf(w), String.valueOf(h)};
         if (isOmlRunning) {
-            Log.d("[LogService]", "video_mp: " + data);
-            measure_points.get(0).inject(data);
+            // hay que inyectar los datos en un nuevo thread, sino
+            // se bloquea por un error NetworkOnMainThreadException
+            Thread t = new Thread(new Runnable() {
+                public void run() {
+                    measure_points.get(0).inject(data);
+                    Log.d("[LogService]", "video_mp: " + data[0] + ", " + data[1] + ", " + data[2]);
+                }
+            });
+            t.start();
         } else {
             Log.d("[LogService]", "OML Server not running yet.");
         }
@@ -94,6 +109,7 @@ public class LogService extends Service {
     }
 
     public class LocalBinder extends Binder {
+
         public LogService getServerInstance() {
             return LogService.this;
         }
@@ -115,7 +131,65 @@ public class LogService extends Service {
         @Override
         protected ArrayList<OmlMP> doInBackground(String... experimentName) {
             // Returns a value, that is catched by the onPostExecute method.
-            String experiment_name = "ex_" + formatter.format(System.currentTimeMillis());
+            // String experiment_name = "ex_" + formatter.format(System.currentTimeMillis());
+            // PostgreSQL connection to get db name
+//            try {
+//                Class.forName("org.postgresql.Driver");
+//                // "jdbc:postgresql://IP:PUERTO/DB", "USER", "PASSWORD")
+//                Log.d("[dbService]", "Database connection...");
+//                String url = "jdbc:postgresql://94.177.232.57:5432/experiments_registry";
+//                Connection conn = DriverManager.getConnection(url, "oml", "tester");
+//                //En el stsql se puede agregar cualquier consulta SQL deseada.
+//                String stsql = "Select version()";
+//                Log.d("[dbService]", "Select version()");
+//                Statement st = conn.createStatement();
+//                ResultSet rs = st.executeQuery(stsql);
+//                rs.next();
+//                DatabaseMetaData meta = conn.getMetaData();
+//                ResultSet res = meta.getCatalogs();
+//                while (rs.next()) {
+//                    System.out.println("TABLE_CAT = " + rs.getString("TABLE_CAT") );
+//                    Log.d("[dbService]", "TABLE_CAT = " + rs.getString("TABLE_CAT"));
+//                }
+//                res.close();
+//                conn.close();
+//            } catch (SQLException se) {
+//                System.out.println("oops! No se puede conectar. Error: " + se.toString());
+//                Log.d("[dbService]", "oops! No se puede conectar. Error: " + se.toString());
+//                se.printStackTrace();
+//            } catch (ClassNotFoundException e) {
+//                System.out.println("oops! No se encuentra la clase. Error: " + e.getMessage());
+//                Log.d("[dbService]", "oops! No se encuentra la clase. Error: " + e.getMessage());
+//                e.printStackTrace();
+//            }
+            // otra forma
+            try {
+                Class.forName("org.postgresql.Driver");
+            } catch (ClassNotFoundException e) {
+                e.printStackTrace();
+            }
+            String url = "jdbc:postgresql://94.177.232.57:5432/experiments_registry?user=oml&password=tester";
+            Connection conn;
+            String exp_name = null;
+            try {
+                DriverManager.setLoginTimeout(5);
+                Log.d("[dbService]", "Connecting to database...");
+                conn = DriverManager.getConnection(url);
+                Log.d("[dbService]", "Connected! :-)");
+                Statement st = conn.createStatement();
+                String query = "SELECT * FROM experiments ORDER BY id DESC LIMIT 1";
+                ResultSet rs = st.executeQuery(query);
+                while (rs.next()) {
+                    exp_name = rs.getString("experiment_name");
+                    Log.d("[dbService]", "Experiment name = " + exp_name);
+                }
+                rs.close();
+                st.close();
+                conn.close();
+            } catch (SQLException e) {
+                e.printStackTrace();
+            }
+            String experiment_name = exp_name;
             OMLBase oml = new OMLBase("ExoPlayer", experiment_name, "exoplayer", "tcp:94.177.232.57:3003");
             ArrayList<OmlMP> measurePoints = new ArrayList<>();
             ArrayList<OMLMPFieldDef> videoMp = new ArrayList<>();
@@ -131,8 +205,8 @@ public class LogService extends Service {
             OmlMP audio_mp = new OmlMP(audioMp);
 
             // Add schema
-            oml.addmp("video", video_mp);
-            oml.addmp("audio", audio_mp);
+            oml.addmp("ExoPlayer_video", video_mp);
+            oml.addmp("ExoPlayer_audio", audio_mp);
 
             oml.start();
 
@@ -143,5 +217,6 @@ public class LogService extends Service {
 
             return measurePoints;
         }
+
     }
 }

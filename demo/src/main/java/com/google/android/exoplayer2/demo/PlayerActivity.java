@@ -99,6 +99,9 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
     DEFAULT_COOKIE_MANAGER.setCookiePolicy(CookiePolicy.ACCEPT_ORIGINAL_SERVER);
   }
 
+  // LogService
+  private LogService logservice;
+
   private Handler mainHandler;
   private EventLogger eventLogger;
   private SimpleExoPlayerView simpleExoPlayerView;
@@ -248,6 +251,13 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
         }
       }
 
+      // LogService
+      if (LogService.logServiceIsRunning) {
+        stopService(new Intent(this, LogService.class));
+      }
+      startService(new Intent(this, LogService.class));
+      logservice = new LogService();
+
       eventLogger = new EventLogger();
       TrackSelection.Factory videoTrackSelectionFactory =
           new AdaptiveVideoTrackSelection.Factory(BANDWIDTH_METER);
@@ -262,6 +272,7 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
       player.setAudioDebugListener(eventLogger);
       player.setVideoDebugListener(eventLogger);
       player.setId3Output(eventLogger);
+
       simpleExoPlayerView.setPlayer(player);
       if (shouldRestorePosition) {
         if (playerPosition == C.TIME_UNSET) {

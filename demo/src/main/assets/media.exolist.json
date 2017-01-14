@@ -400,6 +400,38 @@
         ]
       },
       {
+        "name": "Demos DASH",
+        "playlist": [
+          {
+            "uri": "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/car-20120827-85.mp4"
+          },
+          {
+            "uri": "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/car-20120827-86.mp4"
+          },
+          {
+            "uri": "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/car-20120827-87.mp4"
+          },
+          {
+            "uri": "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/car-20120827-88.mp4"
+          },
+          {
+            "uri": "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/car-20120827-89.mp4"
+          },
+          {
+            "uri": "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/car_cenc-20120827-85.mp4"
+          },
+          {
+            "uri": "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/feelings_vp9-20130806-171.webm"
+          },
+          {
+            "uri": "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/car_cenc-20120827-manifest.mpd"
+          },
+          {
+            "uri": "http://yt-dash-mse-test.commondatastorage.googleapis.com/media/motion-20120802-85.mp4"
+          }
+        ]
+      },
+      {
         "name": "Audio -> Video",
         "playlist": [
           {

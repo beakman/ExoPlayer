@@ -92,6 +92,180 @@ public class SampleChooserActivity extends Activity {
     startActivity(sample.buildIntent(this));
   }
 
+  private static final class SampleAdapter extends BaseExpandableListAdapter {
+
+    private final Context context;
+    private final List<SampleGroup> sampleGroups;
+
+    public SampleAdapter(Context context, List<SampleGroup> sampleGroups) {
+      this.context = context;
+      this.sampleGroups = sampleGroups;
+    }
+
+    @Override
+    public Sample getChild(int groupPosition, int childPosition) {
+      return getGroup(groupPosition).samples.get(childPosition);
+    }
+
+    @Override
+    public long getChildId(int groupPosition, int childPosition) {
+      return childPosition;
+    }
+
+    @Override
+    public View getChildView(int groupPosition, int childPosition, boolean isLastChild,
+                             View convertView, ViewGroup parent) {
+      View view = convertView;
+      if (view == null) {
+        view = LayoutInflater.from(context).inflate(android.R.layout.simple_list_item_1, parent,
+                false);
+      }
+      ((TextView) view).setText(getChild(groupPosition, childPosition).name);
+      return view;
+    }
+
+    @Override
+    public int getChildrenCount(int groupPosition) {
+      return getGroup(groupPosition).samples.size();
+    }
+
+    @Override
+    public SampleGroup getGroup(int groupPosition) {
+      return sampleGroups.get(groupPosition);
+    }
+
+    @Override
+    public long getGroupId(int groupPosition) {
+      return groupPosition;
+    }
+
+    @Override
+    public View getGroupView(int groupPosition, boolean isExpanded, View convertView,
+                             ViewGroup parent) {
+      View view = convertView;
+      if (view == null) {
+        view = LayoutInflater.from(context).inflate(android.R.layout.simple_expandable_list_item_1,
+                parent, false);
+      }
+      ((TextView) view).setText(getGroup(groupPosition).title);
+      return view;
+    }
+
+    @Override
+    public int getGroupCount() {
+      return sampleGroups.size();
+    }
+
+    @Override
+    public boolean hasStableIds() {
+      return false;
+    }
+
+    @Override
+    public boolean isChildSelectable(int groupPosition, int childPosition) {
+      return true;
+    }
+
+  }
+
+  private static final class SampleGroup {
+
+    public final String title;
+    public final List<Sample> samples;
+
+    public SampleGroup(String title) {
+      this.title = title;
+      this.samples = new ArrayList<>();
+    }
+
+  }
+
+  private abstract static class Sample {
+
+    public final String name;
+    public final boolean preferExtensionDecoders;
+    public final UUID drmSchemeUuid;
+    public final String drmLicenseUrl;
+    public final String[] drmKeyRequestProperties;
+
+    public Sample(String name, UUID drmSchemeUuid, String drmLicenseUrl,
+        String[] drmKeyRequestProperties, boolean preferExtensionDecoders) {
+      this.name = name;
+      this.drmSchemeUuid = drmSchemeUuid;
+      this.drmLicenseUrl = drmLicenseUrl;
+      this.drmKeyRequestProperties = drmKeyRequestProperties;
+      this.preferExtensionDecoders = preferExtensionDecoders;
+    }
+
+    public Intent buildIntent(Context context) {
+      Intent intent = new Intent(context, PlayerActivity.class);
+      intent.putExtra(PlayerActivity.PREFER_EXTENSION_DECODERS, preferExtensionDecoders);
+      if (drmSchemeUuid != null) {
+        try {
+          Log.d("[paco] drmSchemeUuid", drmSchemeUuid.toString());
+          Log.d("[paco] drmLicenseUrl", drmLicenseUrl);
+        } catch (Exception e) {
+          e.printStackTrace();
+        }
+        intent.putExtra(PlayerActivity.DRM_SCHEME_UUID_EXTRA, drmSchemeUuid.toString());
+        intent.putExtra(PlayerActivity.DRM_LICENSE_URL, drmLicenseUrl);
+        intent.putExtra(PlayerActivity.DRM_KEY_REQUEST_PROPERTIES, drmKeyRequestProperties);
+      }
+      return intent;
+    }
+
+  }
+
+  private static final class UriSample extends Sample {
+
+    public final String uri;
+    public final String extension;
+
+    public UriSample(String name, UUID drmSchemeUuid, String drmLicenseUrl,
+                     String[] drmKeyRequestProperties, boolean preferExtensionDecoders, String uri,
+                     String extension) {
+      super(name, drmSchemeUuid, drmLicenseUrl, drmKeyRequestProperties, preferExtensionDecoders);
+      this.uri = uri;
+      this.extension = extension;
+    }
+
+    @Override
+    public Intent buildIntent(Context context) {
+      return super.buildIntent(context)
+              .setData(Uri.parse(uri))
+              .putExtra(PlayerActivity.EXTENSION_EXTRA, extension)
+              .setAction(PlayerActivity.ACTION_VIEW);
+    }
+
+  }
+
+  private static final class PlaylistSample extends Sample {
+
+    public final UriSample[] children;
+
+    public PlaylistSample(String name, UUID drmSchemeUuid, String drmLicenseUrl,
+                          String[] drmKeyRequestProperties, boolean preferExtensionDecoders,
+                          UriSample... children) {
+      super(name, drmSchemeUuid, drmLicenseUrl, drmKeyRequestProperties, preferExtensionDecoders);
+      this.children = children;
+    }
+
+    @Override
+    public Intent buildIntent(Context context) {
+      String[] uris = new String[children.length];
+      String[] extensions = new String[children.length];
+      for (int i = 0; i < children.length; i++) {
+        uris[i] = children[i].uri;
+        extensions[i] = children[i].extension;
+      }
+      return super.buildIntent(context)
+              .putExtra(PlayerActivity.URI_LIST_EXTRA, uris)
+              .putExtra(PlayerActivity.EXTENSION_LIST_EXTRA, extensions)
+              .setAction(PlayerActivity.ACTION_VIEW_LIST);
+    }
+
+  }
+
   private final class SampleListLoader extends AsyncTask<String, Void, List<SampleGroup>> {
 
     private boolean sawError;
@@ -190,12 +364,12 @@ public class SampleChooserActivity extends Activity {
             break;
           case "drm_license_url":
             Assertions.checkState(!insidePlaylist,
-                "Invalid attribute on nested item: drm_license_url");
+                    "Invalid attribute on nested item: drm_license_url");
             drmLicenseUrl = reader.nextString();
             break;
           case "drm_key_request_properties":
             Assertions.checkState(!insidePlaylist,
-                "Invalid attribute on nested item: drm_key_request_properties");
+                    "Invalid attribute on nested item: drm_key_request_properties");
             ArrayList<String> drmKeyRequestPropertiesList = new ArrayList<>();
             reader.beginObject();
             while (reader.hasNext()) {
@@ -207,7 +381,7 @@ public class SampleChooserActivity extends Activity {
             break;
           case "prefer_extension_decoders":
             Assertions.checkState(!insidePlaylist,
-                "Invalid attribute on nested item: prefer_extension_decoders");
+                    "Invalid attribute on nested item: prefer_extension_decoders");
             preferExtensionDecoders = reader.nextBoolean();
             break;
           case "playlist":
@@ -227,12 +401,12 @@ public class SampleChooserActivity extends Activity {
 
       if (playlistSamples != null) {
         UriSample[] playlistSamplesArray = playlistSamples.toArray(
-            new UriSample[playlistSamples.size()]);
+                new UriSample[playlistSamples.size()]);
         return new PlaylistSample(sampleName, drmUuid, drmLicenseUrl, drmKeyRequestProperties,
-            preferExtensionDecoders, playlistSamplesArray);
+                preferExtensionDecoders, playlistSamplesArray);
       } else {
         return new UriSample(sampleName, drmUuid, drmLicenseUrl, drmKeyRequestProperties,
-            preferExtensionDecoders, uri, extension);
+                preferExtensionDecoders, uri, extension);
       }
     }
 
@@ -260,174 +434,6 @@ public class SampleChooserActivity extends Activity {
             throw new ParserException("Unsupported drm type: " + typeString);
           }
       }
-    }
-
-  }
-
-  private static final class SampleAdapter extends BaseExpandableListAdapter {
-
-    private final Context context;
-    private final List<SampleGroup> sampleGroups;
-
-    public SampleAdapter(Context context, List<SampleGroup> sampleGroups) {
-      this.context = context;
-      this.sampleGroups = sampleGroups;
-    }
-
-    @Override
-    public Sample getChild(int groupPosition, int childPosition) {
-      return getGroup(groupPosition).samples.get(childPosition);
-    }
-
-    @Override
-    public long getChildId(int groupPosition, int childPosition) {
-      return childPosition;
-    }
-
-    @Override
-    public View getChildView(int groupPosition, int childPosition, boolean isLastChild,
-        View convertView, ViewGroup parent) {
-      View view = convertView;
-      if (view == null) {
-        view = LayoutInflater.from(context).inflate(android.R.layout.simple_list_item_1, parent,
-            false);
-      }
-      ((TextView) view).setText(getChild(groupPosition, childPosition).name);
-      return view;
-    }
-
-    @Override
-    public int getChildrenCount(int groupPosition) {
-      return getGroup(groupPosition).samples.size();
-    }
-
-    @Override
-    public SampleGroup getGroup(int groupPosition) {
-      return sampleGroups.get(groupPosition);
-    }
-
-    @Override
-    public long getGroupId(int groupPosition) {
-      return groupPosition;
-    }
-
-    @Override
-    public View getGroupView(int groupPosition, boolean isExpanded, View convertView,
-        ViewGroup parent) {
-      View view = convertView;
-      if (view == null) {
-        view = LayoutInflater.from(context).inflate(android.R.layout.simple_expandable_list_item_1,
-            parent, false);
-      }
-      ((TextView) view).setText(getGroup(groupPosition).title);
-      return view;
-    }
-
-    @Override
-    public int getGroupCount() {
-      return sampleGroups.size();
-    }
-
-    @Override
-    public boolean hasStableIds() {
-      return false;
-    }
-
-    @Override
-    public boolean isChildSelectable(int groupPosition, int childPosition) {
-      return true;
-    }
-
-  }
-
-  private static final class SampleGroup {
-
-    public final String title;
-    public final List<Sample> samples;
-
-    public SampleGroup(String title) {
-      this.title = title;
-      this.samples = new ArrayList<>();
-    }
-
-  }
-
-  private abstract static class Sample {
-
-    public final String name;
-    public final boolean preferExtensionDecoders;
-    public final UUID drmSchemeUuid;
-    public final String drmLicenseUrl;
-    public final String[] drmKeyRequestProperties;
-
-    public Sample(String name, UUID drmSchemeUuid, String drmLicenseUrl,
-        String[] drmKeyRequestProperties, boolean preferExtensionDecoders) {
-      this.name = name;
-      this.drmSchemeUuid = drmSchemeUuid;
-      this.drmLicenseUrl = drmLicenseUrl;
-      this.drmKeyRequestProperties = drmKeyRequestProperties;
-      this.preferExtensionDecoders = preferExtensionDecoders;
-    }
-
-    public Intent buildIntent(Context context) {
-      Intent intent = new Intent(context, PlayerActivity.class);
-      intent.putExtra(PlayerActivity.PREFER_EXTENSION_DECODERS, preferExtensionDecoders);
-      if (drmSchemeUuid != null) {
-        intent.putExtra(PlayerActivity.DRM_SCHEME_UUID_EXTRA, drmSchemeUuid.toString());
-        intent.putExtra(PlayerActivity.DRM_LICENSE_URL, drmLicenseUrl);
-        intent.putExtra(PlayerActivity.DRM_KEY_REQUEST_PROPERTIES, drmKeyRequestProperties);
-      }
-      return intent;
-    }
-
-  }
-
-  private static final class UriSample extends Sample {
-
-    public final String uri;
-    public final String extension;
-
-    public UriSample(String name, UUID drmSchemeUuid, String drmLicenseUrl,
-        String[] drmKeyRequestProperties, boolean preferExtensionDecoders, String uri,
-        String extension) {
-      super(name, drmSchemeUuid, drmLicenseUrl, drmKeyRequestProperties, preferExtensionDecoders);
-      this.uri = uri;
-      this.extension = extension;
-    }
-
-    @Override
-    public Intent buildIntent(Context context) {
-      return super.buildIntent(context)
-          .setData(Uri.parse(uri))
-          .putExtra(PlayerActivity.EXTENSION_EXTRA, extension)
-          .setAction(PlayerActivity.ACTION_VIEW);
-    }
-
-  }
-
-  private static final class PlaylistSample extends Sample {
-
-    public final UriSample[] children;
-
-    public PlaylistSample(String name, UUID drmSchemeUuid, String drmLicenseUrl,
-        String[] drmKeyRequestProperties, boolean preferExtensionDecoders,
-        UriSample... children) {
-      super(name, drmSchemeUuid, drmLicenseUrl, drmKeyRequestProperties, preferExtensionDecoders);
-      this.children = children;
-    }
-
-    @Override
-    public Intent buildIntent(Context context) {
-      String[] uris = new String[children.length];
-      String[] extensions = new String[children.length];
-      for (int i = 0; i < children.length; i++) {
-        uris[i] = children[i].uri;
-        extensions[i] = children[i].extension;
-      }
-      return super.buildIntent(context)
-          .putExtra(PlayerActivity.URI_LIST_EXTRA, uris)
-          .putExtra(PlayerActivity.EXTENSION_LIST_EXTRA, extensions)
-          .setAction(PlayerActivity.ACTION_VIEW_LIST);
     }
 
   }
