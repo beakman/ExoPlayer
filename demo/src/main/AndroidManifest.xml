@@ -88,6 +88,7 @@
                 <action android:name="COMMAND" />
                 <action android:name="EXTRA_COMMAND" />
                 <action android:name="VIDEO_SOURCE" />
+                <action android:name="DBNAME" />
                 <action android:name="EXTRA_PARAMS" />
                 <action android:name="DRM_SCHEME_UUID_EXTRA" />
                 <action android:name="DRM_LICENSE_URL" />

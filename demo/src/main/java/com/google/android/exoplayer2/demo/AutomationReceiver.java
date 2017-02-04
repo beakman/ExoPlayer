@@ -41,6 +41,7 @@ public class AutomationReceiver extends BroadcastReceiver {
     *
     * */
     public static final String COMMAND_INTENT = "COMMAND";
+    public static final String DBNAME = "DBNAME";
     public static final String EXTRA_COMMAND = "EXTRA_COMMAND";
     public static final String VIDEO_SOURCE = "VIDEO_SOURCE";
     public static final String EXTRA_PARAMS = "EXTRA_PARAMS";
@@ -61,12 +62,20 @@ public class AutomationReceiver extends BroadcastReceiver {
             String command = intent.getStringExtra(EXTRA_COMMAND); // el comando ej: PLAY:VID:INI
             if (command != null) {
                 Log.d(TAG, "Processing command...");
-                String drm_scheme_uuid = intent.getStringExtra(DRM_SCHEME_UUID_EXTRA);
-                String drm_license_url = intent.getStringExtra(DRM_LICENSE_URL);
-                String drm_key_request_properties = intent.getStringExtra(DRM_KEY_REQUEST_PROPERTIES);
-                String prefer_extension_decoders = intent.getStringExtra(PREFER_EXTENSION_DECODERS);
+                // Procesamos los parametros opcionales
+                String drm_scheme_uuid = null;
+                String drm_license_url = null;
+                String drm_key_request_properties = null;
+                String prefer_extension_decoders = null;
+                String dbname = null;
+
+                if (intent.getStringExtra(DRM_SCHEME_UUID_EXTRA) != null) { drm_scheme_uuid = intent.getStringExtra(DRM_SCHEME_UUID_EXTRA); }
+                if (intent.getStringExtra(DRM_LICENSE_URL) != null) { drm_license_url = intent.getStringExtra(DRM_LICENSE_URL); }
+                if (intent.getStringExtra(DRM_KEY_REQUEST_PROPERTIES) != null) { drm_key_request_properties = intent.getStringExtra(DRM_KEY_REQUEST_PROPERTIES); }
+                if (intent.getStringExtra(PREFER_EXTENSION_DECODERS) != null) { prefer_extension_decoders = intent.getStringExtra(PREFER_EXTENSION_DECODERS); }
+                if (intent.getStringExtra(DBNAME) != null) { dbname = intent.getStringExtra(DBNAME); }
                 String video_source = intent.getStringExtra(VIDEO_SOURCE);
-                processCommand(command, video_source, drm_scheme_uuid, drm_license_url, drm_key_request_properties, prefer_extension_decoders);
+                processCommand(command, video_source, dbname, drm_scheme_uuid, drm_license_url, drm_key_request_properties, prefer_extension_decoders);
             }
         }
     }
@@ -75,12 +84,13 @@ public class AutomationReceiver extends BroadcastReceiver {
     // La sitaxis de los comandos es SCAPY.
     private void processCommand(String command,
                                 String video_source,
+                                String dbname,
                                 String drm_sheme_uuid,
                                 String drm_license_url,
                                 String drm_key_request_properties,
                                 String prefer_extension_decoders) {
         if (command.equalsIgnoreCase("PLAY:VID:INI")) {
-            playVideo(video_source, drm_sheme_uuid, drm_license_url, drm_key_request_properties, prefer_extension_decoders);
+            playVideo(video_source, dbname, drm_sheme_uuid, drm_license_url, drm_key_request_properties, prefer_extension_decoders);
             Log.d(TAG, "Command match: PLAY:VID:INI");
         } else if (command.equalsIgnoreCase("PLAY:VID:5:MIN")) {
             playVideoTo(video_source, 5);
@@ -93,18 +103,20 @@ public class AutomationReceiver extends BroadcastReceiver {
 
     // Estas son las funciones que se ejecutan cuando se recibe cierto comando
     public void playVideo(String video_source,
+                          String dbname,
                           String drm_sheme_uuid,
                           String drm_license_url,
                           String drm_key_request_properties,
                           String prefer_extension_decoders) {
         Log.d(TAG, "Play video!");
-        Intent mpdIntent = new Intent(mContext, PlayerActivity.class)
-                .setData(Uri.parse(video_source))
-                .putExtra(PlayerActivity.DRM_SCHEME_UUID_EXTRA, drm_sheme_uuid)
-                .putExtra(PlayerActivity.DRM_LICENSE_URL, drm_license_url)
-                .putExtra(PlayerActivity.DRM_KEY_REQUEST_PROPERTIES, drm_key_request_properties)
-                .putExtra(PlayerActivity.PREFER_EXTENSION_DECODERS, prefer_extension_decoders)
-                .setAction("com.google.android.exoplayer.demo.action.VIEW");
+        Intent mpdIntent = new Intent(mContext, PlayerActivity.class);
+        mpdIntent.setData(Uri.parse(video_source));
+        if (dbname != null) { mpdIntent.putExtra(PlayerActivity.DBNAME, dbname); }
+        if (drm_sheme_uuid != null) { mpdIntent.putExtra(PlayerActivity.DRM_SCHEME_UUID_EXTRA, drm_sheme_uuid); }
+        if (drm_license_url != null) { mpdIntent.putExtra(PlayerActivity.DRM_LICENSE_URL, drm_license_url); }
+        if (drm_key_request_properties != null) { mpdIntent.putExtra(PlayerActivity.DRM_KEY_REQUEST_PROPERTIES, drm_key_request_properties); }
+        if (prefer_extension_decoders != null) { mpdIntent.putExtra(PlayerActivity.PREFER_EXTENSION_DECODERS, prefer_extension_decoders); }
+        mpdIntent.setAction("com.google.android.exoplayer.demo.action.VIEW");
         mContext.startActivity(mpdIntent);
     }
 

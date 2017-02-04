@@ -84,6 +84,8 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
   public static final String DRM_KEY_REQUEST_PROPERTIES = "drm_key_request_properties";
   public static final String PREFER_EXTENSION_DECODERS = "prefer_extension_decoders";
 
+  public static final String DBNAME = "dbname";
+
   public static final String ACTION_VIEW = "com.google.android.exoplayer.demo.action.VIEW";
   public static final String EXTENSION_EXTRA = "extension";
 
@@ -220,12 +222,28 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
   // Internal methods
 
   private void initializePlayer() {
-    Intent intent = getIntent();
-    if (player == null) {
+    /*
+    *  Aqui se trata el Intent, con sus parametros.
+    *  Los parametros se cogen con los getStringExtras esos.
+    *
+    * */
+    Intent intent = getIntent(); // 1º capturamos el Intent
+    if (player == null) { // si no existe ningun player... lo configuramos:
+
+      String dbname = intent.getStringExtra(DBNAME);
+
+      // Esto no se para que sirve. Es false por defecto
       boolean preferExtensionDecoders = intent.getBooleanExtra(PREFER_EXTENSION_DECODERS, false);
+
+      // Esto es un codigo UUID. Tiene que tener un formato especifico para que no falle
       UUID drmSchemeUuid = intent.hasExtra(DRM_SCHEME_UUID_EXTRA)
           ? UUID.fromString(intent.getStringExtra(DRM_SCHEME_UUID_EXTRA)) : null;
+
+      // Esto tampoco se para que sirve
       DrmSessionManager drmSessionManager = null;
+
+      // Si tenemos UUID, capturamos la URL de la licencia drm
+      // Hay que estudiar mejor lo que hace esto
       if (drmSchemeUuid != null) {
         String drmLicenseUrl = intent.getStringExtra(DRM_LICENSE_URL);
         String[] keyRequestPropertiesArray = intent.getStringArrayExtra(DRM_KEY_REQUEST_PROPERTIES);
@@ -251,11 +269,19 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
         }
       }
 
-      // LogService
+      // Llamamos al LogService. Si ya hay un LogService escuchando, lo paramos y creamos otro.
+      // Tenemos que ver como le pasamos el parametro DBNAME
+      // Podemos usar esto: intent.getStringExtra(DBNAME
+      // if... intent.getStringExtra(DBNAME) tal, Sino lo generamos con la fecha
+
+      Intent LogServiceIntent = new Intent(this,LogService.class);
+
+      LogServiceIntent.putExtra("DBNAME", dbname); // dbname nunca sera null, viene de LogService
+
       if (LogService.logServiceIsRunning) {
-        stopService(new Intent(this, LogService.class));
+        stopService(LogServiceIntent);
       }
-      startService(new Intent(this, LogService.class));
+      startService(LogServiceIntent);
       logservice = new LogService();
 
       eventLogger = new EventLogger();

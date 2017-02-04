@@ -48,8 +48,6 @@ import java.text.NumberFormat;
 import java.util.List;
 import java.util.Locale;
 
-import com.google.android.exoplayer2.demo.LogService;
-
 /**
  * Logs player events using {@link Log}.
  */
@@ -155,6 +153,7 @@ import com.google.android.exoplayer2.demo.LogService;
       builder.append(", language=").append(format.language);
     }
     return builder.toString();
+    //LogService.logVideoSizeChange(width, height);
   }
 
   // MappingTrackSelector.EventListener
@@ -172,6 +171,14 @@ import com.google.android.exoplayer2.demo.LogService;
   }
 
   // AudioRendererEventListener
+  /*
+  *  Vamos a capturar en una tabla todos los eventos relacionados con el audio.
+  *  El LogService se encarga de colocarle el timestamp.
+  *
+  *  - onLoadingChanged: True/False
+  *  - onPlayerStateChanged: String state
+  *
+  * */
 
   @Override
   public void onLoadingChanged(boolean isLoading) {
@@ -299,34 +306,47 @@ import com.google.android.exoplayer2.demo.LogService;
   @Override
   public void onAudioEnabled(DecoderCounters counters) {
     Log.d(TAG, "audioEnabled [" + getSessionTimeString() + "]");
+    LogService.logAudioEnabled();
   }
 
   @Override
   public void onAudioSessionId(int audioSessionId) {
     Log.d(TAG, "audioSessionId [" + audioSessionId + "]");
+    LogService.logAudioSessionId(audioSessionId);
   }
 
   @Override
   public void onAudioDecoderInitialized(String decoderName, long elapsedRealtimeMs,
                                         long initializationDurationMs) {
     Log.d(TAG, "audioDecoderInitialized [" + getSessionTimeString() + ", " + decoderName + "]");
+    LogService.logAudioDecoderInitialized(decoderName);
   }
 
   @Override
   public void onAudioInputFormatChanged(Format format) {
     Log.d(TAG, "audioFormatChanged [" + getSessionTimeString() + ", " + getFormatString(format)
             + "]");
+
+    String mimetype = String.valueOf(format.sampleMimeType);
+    String bitrate = String.valueOf(format.bitrate);
+    String channels = String.valueOf(format.channelCount);
+    String sample_rate = String.valueOf(format.sampleRate);
+    String language = String.valueOf(format.language);
+
+    LogService.logAudioInputFormatChanged(mimetype, bitrate, channels, sample_rate, language);
   }
 
   @Override
   public void onAudioDisabled(DecoderCounters counters) {
     Log.d(TAG, "audioDisabled [" + getSessionTimeString() + "]");
+    LogService.logAudioDisabled();
   }
 
   @Override
   public void onAudioTrackUnderrun(int bufferSize, long bufferSizeMs, long elapsedSinceLastFeedMs) {
     printInternalError("audioTrackUnderrun [" + bufferSize + ", " + bufferSizeMs + ", "
             + elapsedSinceLastFeedMs + "]", null);
+    LogService.logAudioTrackUnderrun(bufferSize, bufferSizeMs);
   }
 
   // StreamingDrmSessionManager.EventListener
@@ -334,12 +354,14 @@ import com.google.android.exoplayer2.demo.LogService;
   @Override
   public void onVideoEnabled(DecoderCounters counters) {
     Log.d(TAG, "videoEnabled [" + getSessionTimeString() + "]");
+    LogService.logVideoEnabled();
   }
 
   @Override
   public void onVideoDecoderInitialized(String decoderName, long elapsedRealtimeMs,
                                         long initializationDurationMs) {
     Log.d(TAG, "videoDecoderInitialized [" + getSessionTimeString() + ", " + decoderName + "]");
+    LogService.logVideoDecoderInitialized(decoderName);
   }
 
   // ExtractorMediaSource.EventListener
@@ -348,6 +370,12 @@ import com.google.android.exoplayer2.demo.LogService;
   public void onVideoInputFormatChanged(Format format) {
     Log.d(TAG, "videoFormatChanged [" + getSessionTimeString() + ", " + getFormatString(format)
             + "]");
+    String mimetype = format.sampleMimeType;
+    String bitrate = String.valueOf(format.bitrate);
+    String resolution = String.valueOf(format.width) + "x" + String.valueOf(format.height);
+    String fps = String.valueOf(format.frameRate);
+
+    LogService.logVideoInputFormatChanged(mimetype, bitrate, resolution, fps);
   }
 
   // AdaptiveMediaSourceEventListener
@@ -355,19 +383,19 @@ import com.google.android.exoplayer2.demo.LogService;
   @Override
   public void onVideoDisabled(DecoderCounters counters) {
     Log.d(TAG, "videoDisabled [" + getSessionTimeString() + "]");
+    LogService.logVideoDisabled();
   }
 
   @Override
   public void onDroppedFrames(int count, long elapsed) {
     Log.d(TAG, "droppedFrames [" + getSessionTimeString() + ", " + count + "]");
+    LogService.logDroppedFrames(String.valueOf(count));
   }
 
   @Override
   public void onVideoSizeChanged(int width, int height, int unappliedRotationDegrees,
                                  float pixelWidthHeightRatio) {
     // Do nothing.
-    // LogService
-    LogService.logVideoSizeChange(width, height);
   }
 
   @Override
@@ -378,11 +406,13 @@ import com.google.android.exoplayer2.demo.LogService;
   @Override
   public void onDrmSessionManagerError(Exception e) {
     printInternalError("drmSessionManagerError", e);
+    LogService.logDrmSessionManagerError();
   }
 
   @Override
   public void onDrmKeysLoaded() {
     Log.d(TAG, "drmKeysLoaded [" + getSessionTimeString() + "]");
+    LogService.logDrmKeysLoaded();
   }
 
   // Internal methods
@@ -418,7 +448,6 @@ import com.google.android.exoplayer2.demo.LogService;
   public void onLoadCompleted(DataSpec dataSpec, int dataType, int trackType, Format trackFormat,
                               int trackSelectionReason, Object trackSelectionData, long mediaStartTimeMs,
                               long mediaEndTimeMs, long elapsedRealtimeMs, long loadDurationMs, long bytesLoaded) {
-    // Do nothing.
   }
 
   @Override
