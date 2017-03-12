@@ -20,6 +20,7 @@ import android.app.Activity;
 import android.app.AlertDialog;
 import android.content.DialogInterface;
 import android.text.TextUtils;
+import android.util.Log;
 import android.util.Pair;
 import android.view.LayoutInflater;
 import android.view.View;
@@ -235,7 +236,8 @@ import java.util.Locale;
       int trackIndex = tag.second;
       if (!trackGroupsAdaptive[groupIndex] || override == null
           || override.groupIndex != groupIndex) {
-        override = new SelectionOverride(FIXED_FACTORY, groupIndex, trackIndex);
+        override = new SelectionOverride(FIXED_FACTORY, groupIndex, trackIndex); // aqui seleccionamos las pistas
+        Log.d("[TrackSelection]", "SelectionOverride: " + override.tracks);
       } else {
         // The group being modified is adaptive and we already have a non-null override.
         boolean isEnabled = ((CheckedTextView) view).isChecked();
@@ -252,7 +254,7 @@ import java.util.Locale;
           }
         } else {
           // Add the track to the override.
-          setOverride(groupIndex, getTracksAdding(override, trackIndex),
+          setOverride(groupIndex, getTracksAdding(override, trackIndex), // aqui añadimos las pistas seleccionadas en la variable override
               enableRandomAdaptationView.isChecked());
         }
       }
@@ -265,6 +267,24 @@ import java.util.Locale;
     TrackSelection.Factory factory = tracks.length == 1 ? FIXED_FACTORY
         : (enableRandomAdaptation ? RANDOM_FACTORY : adaptiveVideoTrackSelectionFactory);
     override = new SelectionOverride(factory, group, tracks);
+  }
+
+   /*
+  *  Idea para forzar la resolución:
+  *
+  *  1º Creamos un override = new SelectionOverride(FIXED_FACTORY, groupIndex, trackIndex);
+  *     trackIndex indicara la pista elegida. Cada pista tiene un formato determinado (resolucion entre otras cosas)
+  *
+  *  2º setOverride(groupIndex, getTracksAdding(override, trackIndex),
+  *           enableRandomAdaptationView.isChecked());
+  *
+  *  3º updateViews()
+  *
+  * */
+  public void setResolution() {
+    Log.d("[TrackSelection]", "Forzando resolucion...!");
+    override = new SelectionOverride(FIXED_FACTORY, 0, 0);
+    setOverride(0, getTracksAdding(override, 0), false);
   }
 
   // Track array manipulation.

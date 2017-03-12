@@ -352,6 +352,10 @@ public class LogService extends Service {
         // Hemos metido en el Intent parametros adicionales, los sacamos con esto
         Bundle extras = intent.getExtras();
         String dbname = "exoplayer_" + formatter.format(System.currentTimeMillis()); // default
+        String server_address = ""; // ejemplo: 94.177.232.57:5432
+
+        // Nombre de la base de datos:
+
         if(extras.get("DBNAME") == null) {
             Log.d("[LogService]", "null"); // no hay extras, nombre por defecto para la base de datos
         }
@@ -360,10 +364,22 @@ public class LogService extends Service {
             Log.d("[LogService]","not null");
             dbname = (String) extras.get("DBNAME");
         }
+
+        // Direccion servidor OML2:
+
+        if(extras.get("OML2ADDR") == null) {
+            Log.e("[LogService]", "oml2 server not specified: results won't be recorded to database");
+        }
+        else
+        {
+            server_address = (String) extras.get("OML2ADDR");
+            Log.d("[LogService]","not null, using: " + server_address);
+        }
+
         Log.d("[LogService]", "Iniciando servicio");
         Log.d("[LogService]", "Escribiendo en " + dbname);
         super.onStartCommand(intent, flags, startId);
-        new OmlSetup().execute(dbname);
+        new OmlSetup().execute(dbname, server_address);
         logServiceIsRunning = true;
         return START_STICKY;
     }
@@ -395,12 +411,13 @@ public class LogService extends Service {
         }
 
         @Override
-        protected ArrayList<OmlMP> doInBackground(String... experimentName) {
+        protected ArrayList<OmlMP> doInBackground(String... OmlExtra) {
             // El metodo doInBackground devuelve un 'result' que es capturado por el
             // metodo 'onPostExecute'. Lo usamos para pasar los measure_points.
             // Le pasamos la String dbname en la llamada: new OmlSetup().execute(dbname);
             // Podiamos haber pasado un array de Strings, por eso el [0].
-            String experiment_name = experimentName[0];
+            String experiment_name = OmlExtra[0];
+            String oml_server_address = OmlExtra[1];
             Log.d("[LogService]", "!!! experiment_name="+experiment_name);
 
             /*
@@ -483,9 +500,12 @@ public class LogService extends Service {
             *
             * audio_events = {timestamp, event (enabled/disabled/loadDRMkeys...)}
             * audio_format = {timestamp, mimetype, bitrate, channels, sample_rate, language}
+            * audio_track_underrun = {timestamp, buffer_size, buffer_size_ms}
+            *
+            * "tcp:94.177.232.57:3003"
             *
             * */
-            OMLBase oml = new OMLBase("ExoPlayer", experiment_name, "exoplayer", "tcp:94.177.232.57:3003");
+            OMLBase oml = new OMLBase("ExoPlayer", experiment_name, "exoplayer", oml_server_address);
             ArrayList<OmlMP> measurePoints = new ArrayList<>();
 
             // video_format

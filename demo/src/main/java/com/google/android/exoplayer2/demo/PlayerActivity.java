@@ -54,6 +54,7 @@ import com.google.android.exoplayer2.source.smoothstreaming.DefaultSsChunkSource
 import com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource;
 import com.google.android.exoplayer2.trackselection.AdaptiveVideoTrackSelection;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
+import com.google.android.exoplayer2.trackselection.FixedTrackSelection;
 import com.google.android.exoplayer2.trackselection.MappingTrackSelector;
 import com.google.android.exoplayer2.trackselection.MappingTrackSelector.TrackInfo;
 import com.google.android.exoplayer2.trackselection.TrackSelection;
@@ -73,6 +74,11 @@ import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 
+
+/* Para seleccionar la resolucion */
+import android.util.Log;
+
+
 /**
  * An activity that plays media using {@link SimpleExoPlayer}.
  */
@@ -85,6 +91,8 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
   public static final String PREFER_EXTENSION_DECODERS = "prefer_extension_decoders";
 
   public static final String DBNAME = "dbname";
+  public static final String OML2ADDR = "oml2addr";
+  public static final String RESOLUTION = "resolution";
 
   public static final String ACTION_VIEW = "com.google.android.exoplayer.demo.action.VIEW";
   public static final String EXTENSION_EXTRA = "extension";
@@ -231,6 +239,8 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
     if (player == null) { // si no existe ningun player... lo configuramos:
 
       String dbname = intent.getStringExtra(DBNAME);
+      String oml2addr = intent.getStringExtra(OML2ADDR);
+      String resolution = intent.getStringExtra(RESOLUTION);
 
       // Esto no se para que sirve. Es false por defecto
       boolean preferExtensionDecoders = intent.getBooleanExtra(PREFER_EXTENSION_DECODERS, false);
@@ -277,6 +287,7 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
       Intent LogServiceIntent = new Intent(this,LogService.class);
 
       LogServiceIntent.putExtra("DBNAME", dbname); // dbname nunca sera null, viene de LogService
+      LogServiceIntent.putExtra("OML2ADDR", oml2addr); //
 
       if (LogService.logServiceIsRunning) {
         stopService(LogServiceIntent);
@@ -290,7 +301,18 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
       trackSelector = new DefaultTrackSelector(mainHandler, videoTrackSelectionFactory);
       trackSelector.addListener(this);
       trackSelector.addListener(eventLogger);
+      Log.d("[TrackSelection]", "trackSelector " + trackSelector.getTrackInfo());
       trackSelectionHelper = new TrackSelectionHelper(trackSelector, videoTrackSelectionFactory);
+
+      // Si tenemos la resolucion, la forzamos
+      String res = intent.hasExtra(RESOLUTION) ? intent.getStringExtra(RESOLUTION) : null;
+      if (res == null) {
+        TrackSelection.Factory FIXED_FACTORY = new FixedTrackSelection.Factory();
+        MappingTrackSelector.SelectionOverride override = null;
+        override = new MappingTrackSelector.SelectionOverride(FIXED_FACTORY, 0, 0);
+        // MappingTrackSelector.setSelectionOverride();
+      }
+
       player = ExoPlayerFactory.newSimpleInstance(this, trackSelector, new DefaultLoadControl(),
           drmSessionManager, preferExtensionDecoders);
       player.addListener(this);
