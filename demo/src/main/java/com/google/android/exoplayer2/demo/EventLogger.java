@@ -448,6 +448,18 @@ import java.util.Locale;
   public void onLoadCompleted(DataSpec dataSpec, int dataType, int trackType, Format trackFormat,
                               int trackSelectionReason, Object trackSelectionData, long mediaStartTimeMs,
                               long mediaEndTimeMs, long elapsedRealtimeMs, long loadDurationMs, long bytesLoaded) {
+    try {
+      String mimetype = trackFormat.sampleMimeType;
+      String bitrate = String.valueOf(trackFormat.bitrate);
+      String resolution = String.valueOf(trackFormat.width) + "x" + String.valueOf(trackFormat.height);
+      String fps = String.valueOf(trackFormat.frameRate);
+      if (trackFormat.width != -1) {
+        LogService.logVideoInputFormatChanged(mimetype, bitrate, resolution, fps);
+        Log.d("[LogService]", "onLoadCompleted! res=" + resolution);
+      }
+    } catch (Exception e) {
+      Log.e("[LogService]", "onLoadCompleted, fallo al escribir el log.");
+    }
   }
 
   @Override

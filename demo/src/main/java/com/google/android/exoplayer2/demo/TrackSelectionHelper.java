@@ -39,6 +39,7 @@ import com.google.android.exoplayer2.trackselection.TrackSelection;
 import com.google.android.exoplayer2.util.MimeTypes;
 import java.util.Arrays;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Helper class for displaying track selection dialogs.
@@ -122,6 +123,7 @@ import java.util.Locale;
     root.addView(disableView);
 
     // View for clearing the override to allow the selector to use its default selection logic.
+    Log.d("[TrackSelection]", "Haciendo algo con defaultView");
     defaultView = (CheckedTextView) inflater.inflate(
         android.R.layout.simple_list_item_single_choice, root, false);
     defaultView.setText(R.string.selection_default);
@@ -136,6 +138,7 @@ import java.util.Locale;
     trackViews = new CheckedTextView[trackGroups.length][];
     for (int groupIndex = 0; groupIndex < trackGroups.length; groupIndex++) {
       TrackGroup group = trackGroups.get(groupIndex);
+      Log.d("[TrackSelection]", "trackGroups.get(groupIndex)..." + group);
       boolean groupIsAdaptive = trackGroupsAdaptive[groupIndex];
       haveAdaptiveTracks |= groupIsAdaptive;
       trackViews[groupIndex] = new CheckedTextView[group.length];
@@ -181,6 +184,7 @@ import java.util.Locale;
   }
 
   private void updateViews() {
+    Log.d("[TrackSelection]", "UpdatingViews...");
     disableView.setChecked(isDisabled);
     defaultView.setChecked(!isDisabled && override == null);
     for (int i = 0; i < trackViews.length; i++) {
@@ -211,6 +215,7 @@ import java.util.Locale;
     selector.setRendererDisabled(rendererIndex, false);
     if (override != null) {
       selector.setSelectionOverride(rendererIndex, trackGroups, override);
+      Log.d("[TrackSelection]", "trackGroups: " + trackGroups);
     } else {
       selector.clearSelectionOverrides(rendererIndex);
     }
@@ -236,8 +241,10 @@ import java.util.Locale;
       int trackIndex = tag.second;
       if (!trackGroupsAdaptive[groupIndex] || override == null
           || override.groupIndex != groupIndex) {
-        override = new SelectionOverride(FIXED_FACTORY, groupIndex, trackIndex); // aqui seleccionamos las pistas
-        Log.d("[TrackSelection]", "SelectionOverride: " + override.tracks);
+        // este es el caso en el que solo seleccionamos una pista
+        override = new SelectionOverride(FIXED_FACTORY, groupIndex, trackIndex);
+        Log.d("[TrackSelection]", "trackGroupsAdaptive[: " + groupIndex + "]=" + trackGroupsAdaptive[groupIndex]);
+        Log.d("[TrackSelection]", "FIXED_FACTORY: " + groupIndex + ", " + trackIndex);
       } else {
         // The group being modified is adaptive and we already have a non-null override.
         boolean isEnabled = ((CheckedTextView) view).isChecked();
@@ -267,24 +274,33 @@ import java.util.Locale;
     TrackSelection.Factory factory = tracks.length == 1 ? FIXED_FACTORY
         : (enableRandomAdaptation ? RANDOM_FACTORY : adaptiveVideoTrackSelectionFactory);
     override = new SelectionOverride(factory, group, tracks);
+    Log.d("[TrackSelection]", "setOverride: " + override.toString());
+    Log.d("[TrackSelection]", "RANDOM_FACTORY: " + RANDOM_FACTORY.toString());
   }
 
-   /*
-  *  Idea para forzar la resolución:
+  /*
+  *  Forzamos la resolución:
   *
-  *  1º Creamos un override = new SelectionOverride(FIXED_FACTORY, groupIndex, trackIndex);
-  *     trackIndex indicara la pista elegida. Cada pista tiene un formato determinado (resolucion entre otras cosas)
-  *
-  *  2º setOverride(groupIndex, getTracksAdding(override, trackIndex),
-  *           enableRandomAdaptationView.isChecked());
-  *
-  *  3º updateViews()
+  *  - Pasamos el trackIndex desde PlayerActivity, que es la que captura los parametros desde adb
+  *  - groupIndex: no sé qué es
   *
   * */
-  public void setResolution() {
-    Log.d("[TrackSelection]", "Forzando resolucion...!");
-    override = new SelectionOverride(FIXED_FACTORY, 0, 0);
-    setOverride(0, getTracksAdding(override, 0), false);
+
+  public void setResolution(int TrackIndex) {
+    int ti = TrackIndex;
+
+    Log.d("[TrackSelection]", "Marcando opciones...");
+    if (defaultView != null) {
+      defaultView.setChecked(false);
+    }
+    if (disableView != null) {
+      disableView.setChecked(false);
+    }
+
+    selector.clearSelectionOverrides(rendererIndex);
+    override = new SelectionOverride(FIXED_FACTORY, 0, ti);
+    Log.d("[TrackSelection]", "SelectionOverride " + rendererIndex + ", " + ti);
+    // updateViews(); esto sirve para actualizar el menu con las distintas resoluciones
   }
 
   // Track array manipulation.

@@ -53,8 +53,9 @@ import com.google.android.exoplayer2.source.hls.HlsMediaSource;
 import com.google.android.exoplayer2.source.smoothstreaming.DefaultSsChunkSource;
 import com.google.android.exoplayer2.source.smoothstreaming.SsMediaSource;
 import com.google.android.exoplayer2.trackselection.AdaptiveVideoTrackSelection;
+import com.google.android.exoplayer2.trackselection.DefaultFixedTrackSelector;
+import com.google.android.exoplayer2.trackselection.NonAdaptiveVideoTrackSelection;
 import com.google.android.exoplayer2.trackselection.DefaultTrackSelector;
-import com.google.android.exoplayer2.trackselection.FixedTrackSelection;
 import com.google.android.exoplayer2.trackselection.MappingTrackSelector;
 import com.google.android.exoplayer2.trackselection.MappingTrackSelector.TrackInfo;
 import com.google.android.exoplayer2.trackselection.TrackSelection;
@@ -78,7 +79,6 @@ import java.util.UUID;
 /* Para seleccionar la resolucion */
 import android.util.Log;
 
-
 /**
  * An activity that plays media using {@link SimpleExoPlayer}.
  */
@@ -90,9 +90,23 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
   public static final String DRM_KEY_REQUEST_PROPERTIES = "drm_key_request_properties";
   public static final String PREFER_EXTENSION_DECODERS = "prefer_extension_decoders";
 
-  public static final String DBNAME = "dbname";
-  public static final String OML2ADDR = "oml2addr";
-  public static final String RESOLUTION = "resolution";
+  /*
+  * Parámetros para pasar por adb
+  * =============================
+  *
+  * Ejemplo: ./adb shell am start -a com.google.android.exoplayer.demo.action.VIEW
+  *            -d "https://storage.googleapis.com/wvmedia/clear/h264/tears/tears.mpd"
+  *            --es dbname "forzado-resolucion2"
+  *            --es oml2addr "tcp:94.177.232.57:3003"
+  *            --es video_tindex 1
+  *
+  * */
+  public static final String DBNAME = "dbname";              // Nombre de la BBDD
+  public static final String OML2ADDR = "oml2addr";          // Direccion del servidor OML
+  public static final String VIDEO_TINDEX = "video_tindex";  // Video TrackIndex
+  public static final String VIDEO_GINDEX = "video_gindex";  // Video GroupIndex
+  public static final String AUDIO_TINDEX = "audio_tindex";  // Audio TrackIndex
+  public static final String AUDIO_GINDEX = "audio_gindex";  // Audio GroupIndex
 
   public static final String ACTION_VIEW = "com.google.android.exoplayer.demo.action.VIEW";
   public static final String EXTENSION_EXTRA = "extension";
@@ -169,7 +183,7 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
   public void onStart() {
     super.onStart();
     if (Util.SDK_INT > 23) {
-      initializePlayer();
+        initializePlayer();
     }
   }
 
@@ -185,7 +199,7 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
   public void onPause() {
     super.onPause();
     if (Util.SDK_INT <= 23) {
-      releasePlayer();
+        releasePlayer();
     }
   }
 
@@ -227,20 +241,27 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
     debugRootView.setVisibility(visibility);
   }
 
-  // Internal methods
-
+  /*
+  *   Parámetros para adb
+  *   ===================
+  *   - dbname: nombre de la base de datos, por defecto se genera a partir de la fecha y hora
+  *   - oml2addr: la direccion del servidor OML2 (i.e: tcp:94.177.232.57:3003)
+  *   - video_tindex: el indice de track para video. Sirve para forzar una determinada resolución
+  *   - video_gindex: el indice de grupo de video. No se aún para qué sirve
+  *   - audio_tindex: el indice de track para audio. Sirve para forzar un determinado bitrate de audio
+  *   - audio_gindex: el indice de grupo de audio. No se aún para qué sirve
+  *
+  * */
   private void initializePlayer() {
-    /*
-    *  Aqui se trata el Intent, con sus parametros.
-    *  Los parametros se cogen con los getStringExtras esos.
-    *
-    * */
-    Intent intent = getIntent(); // 1º capturamos el Intent
-    if (player == null) { // si no existe ningun player... lo configuramos:
+    Intent intent = getIntent();
+    if (player == null) {
 
       String dbname = intent.getStringExtra(DBNAME);
       String oml2addr = intent.getStringExtra(OML2ADDR);
-      String resolution = intent.getStringExtra(RESOLUTION);
+      String video_tindex = intent.getStringExtra(VIDEO_TINDEX);
+      String video_gindex = intent.getStringExtra(VIDEO_GINDEX);
+      String audio_tindex = intent.getStringExtra(AUDIO_TINDEX);
+      String audio_gindex = intent.getStringExtra(AUDIO_GINDEX);
 
       // Esto no se para que sirve. Es false por defecto
       boolean preferExtensionDecoders = intent.getBooleanExtra(PREFER_EXTENSION_DECODERS, false);
@@ -279,15 +300,15 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
         }
       }
 
-      // Llamamos al LogService. Si ya hay un LogService escuchando, lo paramos y creamos otro.
-      // Tenemos que ver como le pasamos el parametro DBNAME
-      // Podemos usar esto: intent.getStringExtra(DBNAME
-      // if... intent.getStringExtra(DBNAME) tal, Sino lo generamos con la fecha
-
+      /* Configuración de LogService:
+      *  ===========================
+      *  1- Llamamos al LogService. Si ya hay un LogService escuchando, lo paramos y creamos otro.
+      *
+      */
       Intent LogServiceIntent = new Intent(this,LogService.class);
 
       LogServiceIntent.putExtra("DBNAME", dbname); // dbname nunca sera null, viene de LogService
-      LogServiceIntent.putExtra("OML2ADDR", oml2addr); //
+      LogServiceIntent.putExtra("OML2ADDR", oml2addr); // la direccion del servidor oml
 
       if (LogService.logServiceIsRunning) {
         stopService(LogServiceIntent);
@@ -296,22 +317,64 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
       logservice = new LogService();
 
       eventLogger = new EventLogger();
-      TrackSelection.Factory videoTrackSelectionFactory =
-          new AdaptiveVideoTrackSelection.Factory(BANDWIDTH_METER);
-      trackSelector = new DefaultTrackSelector(mainHandler, videoTrackSelectionFactory);
+
+      /*
+       *  Forzar una pista de audio/video/subtitulos
+       *  ==========================================
+       *  En todos los casos hay que especificar un grupo y pista: GroupIndex y TrackIndex
+       */
+      String vti = intent.hasExtra(VIDEO_TINDEX) ? intent.getStringExtra(VIDEO_TINDEX) : null;
+      String vgi = intent.hasExtra(VIDEO_GINDEX) ? intent.getStringExtra(VIDEO_GINDEX) : null;
+      String ati = intent.hasExtra(AUDIO_TINDEX) ? intent.getStringExtra(AUDIO_TINDEX) : null;
+      String agi = intent.hasExtra(AUDIO_GINDEX) ? intent.getStringExtra(AUDIO_GINDEX) : null;
+
+        int selectedVTIndex; // selected video track index
+        int selectedVGIndex; // selected video group index
+        int selectedATIndex; // selected audio track index
+        int selectedAGIndex; // selected audio group index
+
+        try {
+            selectedVTIndex = Integer.parseInt(vti);
+        } catch (NumberFormatException e) {
+            selectedVTIndex = -1;
+        }
+        try {
+            selectedVGIndex = Integer.parseInt(vgi);
+        } catch (NumberFormatException e) {
+            selectedVGIndex = -1;
+        }
+        try {
+            selectedATIndex = Integer.parseInt(ati);
+        } catch (NumberFormatException e) {
+            selectedATIndex = -1;
+        }
+        try {
+            selectedAGIndex = Integer.parseInt(agi);
+        } catch (NumberFormatException e) {
+            selectedAGIndex = -1;
+        }
+
+        TrackSelection.Factory videoTrackSelectionFactory =
+              new AdaptiveVideoTrackSelection.Factory(BANDWIDTH_METER);
+
+      /*
+       * Si hemos fijado algun parametro de resolución de video o audio usamos
+       * este TrackSelector, sino nos quedamos con el Adaptativo por defecto
+       *
+       * */
+      if (vti!=null || vgi!=null || ati!=null || agi!=null) {
+          // nuestro trackSelector custom
+          videoTrackSelectionFactory =
+                  new NonAdaptiveVideoTrackSelection.Factory(BANDWIDTH_METER, selectedVTIndex, selectedVGIndex, selectedATIndex, selectedAGIndex);
+          trackSelector = new DefaultFixedTrackSelector(mainHandler, null, selectedVTIndex, selectedVGIndex, selectedATIndex, selectedAGIndex); // null si no adaptiveVideo
+      } else {
+          // la opcion por defecto
+          trackSelector = new DefaultTrackSelector(mainHandler, videoTrackSelectionFactory);
+      }
+
       trackSelector.addListener(this);
       trackSelector.addListener(eventLogger);
-      Log.d("[TrackSelection]", "trackSelector " + trackSelector.getTrackInfo());
       trackSelectionHelper = new TrackSelectionHelper(trackSelector, videoTrackSelectionFactory);
-
-      // Si tenemos la resolucion, la forzamos
-      String res = intent.hasExtra(RESOLUTION) ? intent.getStringExtra(RESOLUTION) : null;
-      if (res == null) {
-        TrackSelection.Factory FIXED_FACTORY = new FixedTrackSelection.Factory();
-        MappingTrackSelector.SelectionOverride override = null;
-        override = new MappingTrackSelector.SelectionOverride(FIXED_FACTORY, 0, 0);
-        // MappingTrackSelector.setSelectionOverride();
-      }
 
       player = ExoPlayerFactory.newSimpleInstance(this, trackSelector, new DefaultLoadControl(),
           drmSessionManager, preferExtensionDecoders);
@@ -333,6 +396,19 @@ public class PlayerActivity extends Activity implements OnClickListener, ExoPlay
       debugViewHelper = new DebugTextViewHelper(player, debugTextView);
       debugViewHelper.start();
       playerNeedsSource = true;
+
+      /*
+      *  Forzamos la resolucion
+      *
+      * */
+
+      // Si tenemos la resolucion, la forzamos creo que ya no se usa
+//      if (res != null) {
+//        int ti = Integer.parseInt(res); // trackIndex
+//        Log.d("[TrackSelection]", "Forzando resolucion...a " + ti + " !!!!!");
+//        trackSelectionHelper.setResolution(ti);
+//      }
+
     }
     if (playerNeedsSource) {
       String action = intent.getAction();

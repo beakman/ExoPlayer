@@ -266,6 +266,7 @@ public class LogService extends Service {
                 public void run() {
                     measure_points.get(0).inject(data); // video_format field
                     Log.d("[LogService]", "VideoInputFormatChanged at " + data[0] + "; mimetype: " + data[1] + "; bitrate: " + data[2] + "; resolution: " + data[3] + "; fps: " + data[4]);
+                    Log.d("[TrackSelection]", "VideoInputFormatChanged at " + data[0] + "; mimetype: " + data[1] + "; bitrate: " + data[2] + "; resolution: " + data[3] + "; fps: " + data[4]);
                 }
             });
             t.start();
@@ -350,14 +351,20 @@ public class LogService extends Service {
     @Override
     public int onStartCommand(Intent intent, int flags, int startId) {
         // Hemos metido en el Intent parametros adicionales, los sacamos con esto
-        Bundle extras = intent.getExtras();
+        Bundle extras = null;
+        try {
+            extras = intent.getExtras();
+        } catch (Exception e) {
+            Log.e("[LogService]", "Fallo al recuperar los extras del intent en LogService.");
+        }
         String dbname = "exoplayer_" + formatter.format(System.currentTimeMillis()); // default
         String server_address = ""; // ejemplo: 94.177.232.57:5432
 
         // Nombre de la base de datos:
 
+        // no hay extras, nombre por defecto para la base de datos
         if(extras.get("DBNAME") == null) {
-            Log.d("[LogService]", "null"); // no hay extras, nombre por defecto para la base de datos
+            Log.d("[LogService]", "No se ha especificado ningun nombre para la base de datos. Se le asigna: " + dbname);
         }
         else
         {

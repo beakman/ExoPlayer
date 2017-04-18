@@ -82,21 +82,6 @@
             android:name=".LogService"
             android:enabled="true"
             android:exported="true" />
-
-        <receiver android:name="com.google.android.exoplayer2.demo.AutomationReceiver">
-            <intent-filter>
-                <action android:name="COMMAND" />
-                <action android:name="EXTRA_COMMAND" />
-                <action android:name="VIDEO_SOURCE" />
-                <action android:name="DBNAME" />
-                <action android:name="EXTRA_PARAMS" />
-                <action android:name="DRM_SCHEME_UUID_EXTRA" />
-                <action android:name="DRM_LICENSE_URL" />
-                <action android:name="DRM_KEY_REQUEST_PROPERTIES" />
-                <action android:name="PREFER_EXTENSION_DECODERS" />
-                <action android:name="EXTENSION_EXTRA" />
-            </intent-filter>
-        </receiver>
     </application>
 
 </manifest>
